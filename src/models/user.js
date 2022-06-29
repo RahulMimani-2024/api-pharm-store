@@ -2,13 +2,11 @@ const mongoose = require("mongoose");
 const validator = require("validator");
 const bcrpyt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const task = require('../models/task');
-
+const task = require("../models/task");
 
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
     trim: true,
     validate(value) {
       if (value.length === 0) {
@@ -57,38 +55,50 @@ const userSchema = new mongoose.Schema({
       },
     },
   ],
-  avatar :{
-    type : Buffer,
-  }
+  avatar: {
+    type: Buffer,
+  },
+  cart: [
+    {
+      productId:{
+        type:Number,
+      },
+      count :{
+        type:Number,
+      }
+    }
+  ],
 });
 
 //virtual property relationship
 
-userSchema.virtual('tasks',{
-  ref : 'tasks',
-  localField: '_id',
-  foreignField: 'owner',
-})
-
+userSchema.virtual("tasks", {
+  ref: "tasks",
+  localField: "_id",
+  foreignField: "owner",
+});
 
 //puclic data
 userSchema.methods.toJSON = function () {
-  
-    const user = this;
-    const userRequired =  user.toObject();
+  const user = this;
+  const userRequired = user.toObject();
 
-    delete userRequired.password;
-    delete userRequired.tokens;
-    delete userRequired.avatar;
-    return userRequired;
+  delete userRequired.password;
+  delete userRequired.tokens;
+  delete userRequired.avatar;
+  return userRequired;
 };
 
 //token generation
 userSchema.methods.generateToken = async function () {
   const user = this;
-  const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET_KEY, {
-    expiresIn: "2 minutes",
-  });
+  const token = jwt.sign(
+    { _id: user._id.toString() },
+    process.env.JWT_SECRET_KEY,
+    {
+      // expiresIn: "10 hours",
+    }
+  );
   user.tokens = user.tokens.concat({ token });
   await user.save();
   return token;
@@ -110,7 +120,7 @@ userSchema.statics.findAndVerify = async (email, password) => {
 //user save
 userSchema.pre("save", async function (next) {
   const user = this;
-
+  const temp = users.findById(user._id);
   if (user.isModified("password")) {
     user.password = await bcrpyt.hash(user.password, 8);
   }
@@ -118,11 +128,11 @@ userSchema.pre("save", async function (next) {
 });
 
 //user delete
-userSchema.pre("remove" , async function (next) {
-  const user =this;
-  await task.deleteMany({owner : user._id});
+userSchema.pre("remove", async function (next) {
+  const user = this;
+  await task.deleteMany({ owner: user._id });
   next();
-})
+});
 
 const users = mongoose.model("user", userSchema);
 
